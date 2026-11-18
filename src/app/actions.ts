@@ -7,6 +7,27 @@ export type LoginActionState = {
   error?: string;
 };
 
+export type PhoneOtpActionState = {
+  error?: string;
+  phone?: string;
+};
+
+async function ensureAdminRole(
+  role: unknown,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  if (role === "admin") {
+    return true;
+  }
+
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    throw error;
+  }
+
+  return false;
+}
+
 export async function signInAction(
   _previousState: LoginActionState,
   formData: FormData,
@@ -27,11 +48,69 @@ export async function signInAction(
     return { error: error.message };
   }
 
-  if (data.user.app_metadata.role !== "admin") {
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      throw signOutError;
-    }
+  if (!(await ensureAdminRole(data.user.app_metadata.role, supabase))) {
+    return { error: "This account does not have admin access." };
+  }
+
+  redirect("/dashboard");
+}
+
+export async function sendPhoneOtpAction(
+  _previousState: PhoneOtpActionState,
+  formData: FormData,
+): Promise<PhoneOtpActionState> {
+  const countryCodeValue = formData.get("countryCode");
+  const phoneValue = formData.get("phoneNumber");
+  const countryCode = typeof countryCodeValue === "string" ? countryCodeValue : "";
+  const localPhone = typeof phoneValue === "string" ? phoneValue : "";
+
+  if (!/^\+\d{1,3}$/.test(countryCode) || !/^\d{10}$/.test(localPhone)) {
+    return { error: "Enter a valid country code and 10-digit phone number." };
+  }
+
+  const phone = `${countryCode}${localPhone}`;
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    phone,
+    options: { shouldCreateUser: false, channel: "sms" },
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { phone };
+}
+
+export async function verifyPhoneOtpAction(
+  _previousState: LoginActionState,
+  formData: FormData,
+): Promise<LoginActionState> {
+  const phoneValue = formData.get("phone");
+  const tokenValue = formData.get("token");
+  const phone = typeof phoneValue === "string" ? phoneValue : "";
+  const token = typeof tokenValue === "string" ? tokenValue : "";
+
+  if (!/^\+\d{11,13}$/.test(phone) || !/^\d{6}$/.test(token)) {
+    return { error: "Enter the 6-digit code sent to your phone." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    phone,
+    token,
+    type: "sms",
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  if (!data.user) {
+    return { error: "We could not verify that code. Please try again." };
+  }
+
+  if (!(await ensureAdminRole(data.user.app_metadata.role, supabase))) {
     return { error: "This account does not have admin access." };
   }
 

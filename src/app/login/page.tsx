@@ -1,13 +1,145 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
-import { signInAction, type LoginActionState } from "@/app/actions";
+import {
+  sendPhoneOtpAction,
+  signInAction,
+  verifyPhoneOtpAction,
+  type LoginActionState,
+  type PhoneOtpActionState,
+} from "@/app/actions";
 
 const initialState: LoginActionState = {};
+const initialPhoneState: PhoneOtpActionState = {};
+
+const countryCodes = [
+  { country: "United States", code: "+1" },
+  { country: "Canada", code: "+1" },
+  { country: "United Kingdom", code: "+44" },
+  { country: "India", code: "+91" },
+  { country: "Australia", code: "+61" },
+  { country: "New Zealand", code: "+64" },
+  { country: "Nigeria", code: "+234" },
+  { country: "South Africa", code: "+27" },
+  { country: "Pakistan", code: "+92" },
+  { country: "Bangladesh", code: "+880" },
+  { country: "Philippines", code: "+63" },
+  { country: "Singapore", code: "+65" },
+  { country: "Malaysia", code: "+60" },
+  { country: "United Arab Emirates", code: "+971" },
+  { country: "Saudi Arabia", code: "+966" },
+  { country: "France", code: "+33" },
+  { country: "Germany", code: "+49" },
+  { country: "Italy", code: "+39" },
+  { country: "Spain", code: "+34" },
+  { country: "Netherlands", code: "+31" },
+  { country: "Ireland", code: "+353" },
+  { country: "Brazil", code: "+55" },
+  { country: "Mexico", code: "+52" },
+  { country: "Japan", code: "+81" },
+  { country: "China", code: "+86" },
+  { country: "South Korea", code: "+82" },
+  { country: "Ghana", code: "+233" },
+  { country: "Kenya", code: "+254" },
+  { country: "Egypt", code: "+20" },
+];
+
+function PhoneLoginFlow({ onChangePhone }: { onChangePhone: () => void }) {
+  const [requestState, requestAction, isRequestPending] = useActionState(
+    sendPhoneOtpAction,
+    initialPhoneState,
+  );
+  const [verifyState, verifyAction, isVerifyPending] = useActionState(
+    verifyPhoneOtpAction,
+    initialState,
+  );
+
+  if (requestState.phone) {
+    return (
+      <>
+        <p className="phone-otp-copy">
+          Enter the 6-digit code sent to <strong>{requestState.phone}</strong>.
+        </p>
+        <form action={verifyAction} className="login-form">
+          <input type="hidden" name="phone" value={requestState.phone} />
+          <label htmlFor="phone-otp">Verification code</label>
+          <input
+            autoComplete="one-time-code"
+            autoFocus
+            id="phone-otp"
+            inputMode="numeric"
+            maxLength={6}
+            name="token"
+            onChange={(event) => {
+              event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "").slice(0, 6);
+            }}
+            pattern="[0-9]{6}"
+            placeholder="Enter your 6-digit code"
+            required
+            type="text"
+          />
+          {verifyState.error ? <p className="form-error" role="alert">{verifyState.error}</p> : null}
+          <button className="primary-button login-submit" disabled={isVerifyPending} type="submit">
+            {isVerifyPending ? "Verifying..." : "Verify and sign in"}
+            <span aria-hidden="true">→</span>
+          </button>
+        </form>
+        <button className="login-back-button" onClick={onChangePhone} type="button">
+          Use a different phone number
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <form action={requestAction} className="login-form">
+      <label htmlFor="phone-number">Phone number</label>
+      <div className="phone-input-group">
+        <select aria-label="Country calling code" defaultValue="+234" name="countryCode">
+          {countryCodes.map(({ country, code }) => (
+            <option key={`${country}-${code}`} title={country} value={code}>{code}</option>
+          ))}
+        </select>
+        <input
+          autoComplete="tel-national"
+          id="phone-number"
+          inputMode="numeric"
+          maxLength={10}
+          minLength={10}
+          name="phoneNumber"
+          onChange={(event) => {
+            event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "").slice(0, 10);
+          }}
+          pattern="[0-9]{10}"
+          placeholder="10-digit phone number"
+          required
+          type="text"
+        />
+      </div>
+      {requestState.error ? <p className="form-error" role="alert">{requestState.error}</p> : null}
+      <button className="primary-button login-submit" disabled={isRequestPending} type="submit">
+        {isRequestPending ? "Sending code..." : "Continue"}
+        <span aria-hidden="true">→</span>
+      </button>
+    </form>
+  );
+}
+
+function PhoneLoginForm() {
+  const [flowKey, setFlowKey] = useState(0);
+
+  return (
+    <PhoneLoginFlow
+      key={flowKey}
+      onChangePhone={() => setFlowKey((currentKey) => currentKey + 1)}
+    />
+  );
+}
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(signInAction, initialState);
+  const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
 
   return (
     <main className="login-page login-page--split">
@@ -18,35 +150,56 @@ export default function LoginPage() {
               <path d="M12 19v-7m0 2c-4.5 0-6-2.5-6-5 3.5 0 6 1.5 6 5Zm0-3c0-3.5 2-5.5 5.5-5.5 0 3.5-1.5 5.5-5.5 5.5Z" />
             </svg>
           </span>
-          <span>spacemore<span className="brand-admin"> / admin</span></span>
+          <span>SpaciMore<span className="brand-admin"> / Control Center</span></span>
         </Link>
         <div className="login-content">
-          <p className="eyebrow">A PLACE TO BEGIN AGAIN</p>
-          <h1>Welcome to<br />Spacemore</h1>
+          <p className="eyebrow">Your Desired Market Place</p>
+          <h1>Welcome Back<br /></h1>
           <p className="login-copy">Pick up where you left off.</p>
-          <form action={formAction} className="login-form">
-            <label htmlFor="email">Email address</label>
-            <input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
-            <label htmlFor="password">Password</label>
-            <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required />
-            {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
-            <button className="primary-button login-submit" disabled={isPending} type="submit">
-              {isPending ? "Signing in..." : "Sign in"}
-              <span aria-hidden="true">→</span>
+          <div className="login-method-switch" aria-label="Sign-in method" role="group">
+            <button
+              aria-pressed={loginMethod === "email"}
+              className={loginMethod === "email" ? "active" : ""}
+              onClick={() => setLoginMethod("email")}
+              type="button"
+            >
+              Email
             </button>
-          </form>
-          <p className="login-footnote">Access is limited to accounts with the admin role.</p>
+            <button
+              aria-pressed={loginMethod === "phone"}
+              className={loginMethod === "phone" ? "active" : ""}
+              onClick={() => setLoginMethod("phone")}
+              type="button"
+            >
+              Phone
+            </button>
+          </div>
+          {loginMethod === "email" ? (
+            <form action={formAction} className="login-form">
+              <label htmlFor="email">Email address</label>
+              <input id="email" name="email" type="email" autoComplete="email" placeholder="you@spacimore.com" required />
+              <label htmlFor="password">Password</label>
+              <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required />
+              {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+              <button className="primary-button login-submit" disabled={isPending} type="submit">
+                {isPending ? "Signing in..." : "Sign in"}
+                <span aria-hidden="true">→</span>
+              </button>
+            </form>
+          ) : (
+            <PhoneLoginForm />
+          )}
+          {/* <p className="login-footnote">Access is limited to accounts with the admin role.</p> */}
         </div>
         <p className="login-copyright">© SPACEMORE</p>
       </section>
       <aside className="login-promo" aria-label="Spacemore">
-        <p className="login-promo-kicker">A QUIETER KIND OF PROGRESS</p>
+        <p className="login-promo-kicker">YOUR MARKETPLACE, AT A GLANCE</p>
         <div className="login-promo-copy">
-          <h2>Make room for<br />what matters.</h2>
-          <p>A little space to gather your thoughts and begin<br className="desktop-break" /> again, whenever you need.</p>
+          <h2>A better view of<br />your marketplace.</h2>
+          <p>Manage products, customers, and orders<br className="desktop-break" /> all in one place.</p>
         </div>
-        <div className="login-illustration" aria-hidden="true"><span /></div>
-        <p className="login-promo-footer">TAKE IT AT YOUR PACE <span>01 — 01</span></p>
+        <p className="login-promo-footer">BUILT FOR BETTER COMMERCE <span>01 — 01</span></p>
       </aside>
     </main>
   );
