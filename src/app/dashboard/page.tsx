@@ -1,11 +1,30 @@
+import { createClient } from "@/lib/supabase/server";
+
 const metrics = [
-  { label: "Total users", note: "Connect user source", value: "—" },
   { label: "Active products", note: "Connect product table", value: "—" },
   { label: "Orders", note: "Connect order table", value: "—" },
   { label: "Gross sales", note: "Connect order totals", value: "—" },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("admin_user_directory")
+    .select("id", { count: "exact", head: true });
+
+  if (error) {
+    console.error("Unable to load the admin user count.", error);
+  }
+
+  const dashboardMetrics = [
+    {
+      label: "Total users",
+      note: error ? "Unable to load user count" : "Registered accounts",
+      value: error ? "—" : `${count ?? 0}`,
+    },
+    ...metrics,
+  ];
+
   return (
     <div className="page-content">
       <div className="page-heading">
@@ -18,7 +37,7 @@ export default function DashboardPage() {
       </div>
 
       <section className="metric-grid" aria-label="Marketplace metrics">
-        {metrics.map((metric, index) => (
+        {dashboardMetrics.map((metric, index) => (
           <article className="metric-card" key={metric.label}>
             <div className="metric-card-top">
               <span className={`metric-icon metric-icon-${index}`} aria-hidden="true">

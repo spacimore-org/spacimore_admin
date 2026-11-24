@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   sendPhoneOtpAction,
   signInAction,
@@ -137,9 +138,18 @@ function PhoneLoginForm() {
   );
 }
 
+function ChevronRightIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 24 24" width="18">
+      <path d="m9 18 6-6-6-6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(signInAction, initialState);
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <main className="login-page login-page--split">
@@ -154,6 +164,13 @@ export default function LoginPage() {
         </Link>
         <div className="login-content">
           <p className="eyebrow">Your Desired Market Place</p>
+          <Image
+            alt=""
+            className="login-welcome-image"
+            height={147}
+            src="/one.png"
+            width={220}
+          />
           <h1>Welcome Back<br /></h1>
           <p className="login-copy">Pick up where you left off.</p>
           <div className="login-method-switch" aria-label="Sign-in method" role="group">
@@ -179,11 +196,32 @@ export default function LoginPage() {
               <label htmlFor="email">Email address</label>
               <input id="email" name="email" type="email" autoComplete="email" placeholder="you@spacimore.com" required />
               <label htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required />
+              <div className="password-input-wrap">
+                <input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter your password" required />
+                <button
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="password-visibility-toggle"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  type="button"
+                >
+                  {showPassword ? (
+                    <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 24 24" width="18">
+                      <path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.7 10.7 0 0 1 12 5c5.2 0 8.5 5.4 8.5 7a8.8 8.8 0 0 1-2.4 3.4M6.2 6.2C4.5 7.4 3.5 9.1 3.5 12c0 1.6 3.3 7 8.5 7a9.5 9.5 0 0 0 3-.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
+                    </svg>
+                  ) : (
+                    <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 24 24" width="18">
+                      <path d="M3.5 12c0-1.6 3.3-7 8.5-7s8.5 5.4 8.5 7-3.3 7-8.5 7-8.5-5.4-8.5-7Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" />
+                      <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <Link className="forgot-password-link" href="/forgot-password">Forgot password?</Link>
               {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
               <button className="primary-button login-submit" disabled={isPending} type="submit">
-                {isPending ? "Signing in..." : "Sign in"}
-                <span aria-hidden="true">→</span>
+                {isPending ? "Continuing..." : "Continue"}
+                <ChevronRightIcon />
               </button>
             </form>
           ) : (

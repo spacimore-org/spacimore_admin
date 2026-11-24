@@ -12,6 +12,15 @@ export type PhoneOtpActionState = {
   phone?: string;
 };
 
+export type PasswordActionState = {
+  error?: string;
+  message?: string;
+};
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 async function ensureAdminRole(
   role: unknown,
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -37,7 +46,7 @@ export async function signInAction(
   const email = typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
   const password = typeof passwordValue === "string" ? passwordValue : "";
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !password) {
+  if (!isValidEmail(email) || !password) {
     return { error: "Enter a valid email address and password." };
   }
 
@@ -50,6 +59,70 @@ export async function signInAction(
 
   if (!(await ensureAdminRole(data.user.app_metadata.role, supabase))) {
     return { error: "This account does not have admin access." };
+  }
+
+  redirect("/dashboard");
+}
+
+export async function requestPasswordResetAction(
+  _previousState: PasswordActionState,
+  formData: FormData,
+): Promise<PasswordActionState> {
+  const emailValue = formData.get("email");
+  const email = typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
+
+  if (!isValidEmail(email)) {
+    return { error: "Enter a valid email address." };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
+  const redirectTo = new URL("/auth/callback?next=/update-password", siteUrl).toString();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return {
+    message: "If an account exists for that address, a password reset link is on its way.",
+  };
+}
+
+export async function updatePasswordAction(
+  _previousState: PasswordActionState,
+  formData: FormData,
+): Promise<PasswordActionState> {
+  const passwordValue = formData.get("password");
+  const confirmationValue = formData.get("confirmPassword");
+  const password = typeof passwordValue === "string" ? passwordValue : "";
+  const confirmation = typeof confirmationValue === "string" ? confirmationValue : "";
+
+  if (password.length < 8) {
+    return { error: "Your password must be at least 8 characters." };
+  }
+  if (password !== confirmation) {
+    return { error: "Those passwords do not match." };
+  }
+
+  const supabase = await createClient();
+  const { data, error: userError } = await supabase.auth.getUser();
+
+  if (userError && userError.name !== "AuthSessionMissingError") {
+    throw userError;
+  }
+  if (!data.user) {
+    return { error: "This password reset link has expired. Request a new link to continue." };
+  }
+
+  if (!(await ensureAdminRole(data.user.app_metadata.role, supabase))) {
+    redirect("/access-denied");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: error.message };
   }
 
   redirect("/dashboard");
